@@ -36,7 +36,7 @@ def generate_product_description(user_input: str) -> str:
         )
         result = " ".join(line.strip() for line in user_input.splitlines())
         response = client.models.generate_content(
-            model="gemini-2.0-flash", contents=[system_prompt, result]
+            model=USE_MODEL, contents=[system_prompt, result]
         )
         return response.text.strip() if hasattr(response, "text") else str(response)
     except Exception as e:
@@ -51,7 +51,7 @@ def generate_tags(user_input: str) -> List[str]:
         )
         full_prompt = f"{system_prompt}\n\nInput: {user_input}\nOutput:"
 
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=full_prompt)
+        response = client.models.generate_content(model=USE_MODEL, contents=full_prompt)
 
         if hasattr(response, "text") and response.text:
             try:
@@ -81,7 +81,7 @@ def categorize_ewaste_image(image_bytes: bytes) -> dict:
 
 )
 
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=[system_prompt, image])
+        response = client.models.generate_content(model=USE_MODEL, contents=[system_prompt, image])
 
         if hasattr(response, "text") and response.text:
             try:
@@ -106,7 +106,7 @@ def give_ques(product_name: str) -> dict:
         )
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash", contents=[system_prompt]
+            model=USE_MODEL, contents=[system_prompt]
         )
 
         response_text = response.text if hasattr(response, "text") else str(response)
@@ -140,7 +140,7 @@ def decide_recycle_or_resell(product_name: str,product_desc:str, user_answers: s
         user_input = json.dumps({"answers": user_answers})
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash", contents=[system_prompt, user_input]
+            model=USE_MODEL, contents=[system_prompt, user_input]
         )
         response_text = response.text.strip() if hasattr(response, "text") else str(response).strip()
 
@@ -159,7 +159,7 @@ def decide_recycle_or_resell(product_name: str,product_desc:str, user_answers: s
             return {"r":"IGN", "g":"IGN"}
 
         guide_response = client.models.generate_content(
-            model="gemini-2.0-flash", contents=[guide_prompt, user_input]
+            model=USE_MODEL, contents=[guide_prompt, user_input]
         )
         guide_text = guide_response.text if hasattr(guide_response, "text") else str(guide_response).strip()
         
