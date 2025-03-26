@@ -152,21 +152,19 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
             )
 
         elif response_text == "resell":
-            return {"r": "resell", "g": {"initials":"Congrats! Your item is fit for resell! 🎉","pointers":{"pt1":"IGN"}}}
+            return {"r": "resell", "g": {"initials":"Congrats! Your item is fit for resell! 🎉","pointers":{"headings":["IGN"],"description":["IGN"]}}}
 
         else:
-            return {"r": "IGN", "g": {"initials":"IGN","pointers":{"pt1":"IGN"}}}
+            return {"r": "IGN", "g": {"initials":"IGN","pointers":{"headings":["IGN"],"description":["IGN"]}}}
 
         guide_response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[guide_prompt, user_input]
         )
         guide_text = guide_response.text.strip("```").strip("json").strip("\n") if hasattr(guide_response, "text") else str(guide_response).strip("```").strip("json").strip("\n")
 
-        # try:
-        #     guide_json = json.loads(guide_text)
-        # except json.JSONDecodeError:
-        #     guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
         guide_json=dict(json.loads(guide_text))
+        guide_json.pointers={"headings":list(guide_json.pointers.keys()),"description":list(guide_json.pointers.values())}
+
 
         return {"r": response_text, "g": guide_json}
 
