@@ -148,7 +148,7 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
                 f"and these are user's answers: {user_answers}. "
                 "Format your response as follows: "
                 "{ 'initials': '<very brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
-                "donot format as json. just give in the format i gave you"
+                "donot format as json. just give in the format i gave you dont add and \\n or anyhting"
             )
 
         elif response_text == "resell":
