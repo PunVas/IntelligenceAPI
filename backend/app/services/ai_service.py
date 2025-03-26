@@ -140,34 +140,37 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[system_prompt, user_input]
         )
-        response_text = response.text.strip() if hasattr(response, "text") else str(response).strip()
+        
+        # Extract clean text response
+        response_text = response.candidates[0].content.parts[0].text.strip()
 
-        if response_text == "recycle":
-            guide_prompt = (
-                f"You are an AI that provides detailed guidance on how to recycle {product_name}. "
-                f"and these are user's answers: {user_answers}. "
-                "Format your response as follows: "
-                "{ 'initials': '<very brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
-                "donot format as json. just give in the format i gave you dont add and \\n or anyhting"
-            )
-
-        elif response_text == "resell":
+        if response_text == "resell":
             return {"r": "resell", "g": "Congrats! Your item is fit for resell! 🎉"}
-
-        else:
+        elif response_text == "IGN":
             return {"r": "IGN", "g": "IGN"}
+
+        # If response is "recycle", generate the guide
+        guide_prompt = (
+            f"You are an AI that provides detailed guidance on how to recycle {product_name}. "
+            f"and these are user's answers: {user_answers}. "
+            "Format your response as follows: "
+            "{ 'initials': '<very brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
+            "Do NOT format as JSON, just return in the exact format mentioned without extra \\n or escape characters."
+        )
 
         guide_response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[guide_prompt, user_input]
         )
-        guide_text =  str(guide_response).strip("\n").strip("```").strip("json")
 
-        # try:
-        #     guide_json = json.loads(guide_text)
-        # except json.JSONDecodeError:
-        #     guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
-        # guide_json = guide_text
-        guide_json = {"a":str(guide_text)}
+        # Extract the guide response cleanly
+        guide_text = guide_response.candidates[0].content.parts[0].text.strip()
+
+        # Ensure proper JSON structure
+        try:
+            guide_json = json.loads(guide_text.replace("'", "\""))  # Convert single quotes to double quotes
+        except json.JSONDecodeError:
+            guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
+
         return {"r": response_text, "g": guide_json}
 
     except Exception as e:
