@@ -38,7 +38,8 @@ class DecisionInput(BaseModel):
 class DecisionResponse(BaseModel):
     """Response model for item decision (Recycle or Resell)."""
     decision: str
-    guide: dict  # Optional additional guidance if applicable
+    # guide: dict  # Optional additional guidance if applicable
+    guide: str
 
 class ImageDataResponse(BaseModel):
     """Response model for e-waste categorization."""
