@@ -142,30 +142,31 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         )
         response_text = response.text.strip() if hasattr(response, "text") else str(response).strip()
 
-        if response_text == "resell":
+        if response_text == "recycle":
+            guide_prompt = (
+                f"You are an AI that provides detailed guidance on how to recycle {product_name}. "
+                f"and these are user's answers: {user_answers}. "
+                "Format your response as follows: "
+                "{ 'initials': '<very brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
+                "donot format as json. just give in the format i gave you"
+            )
+
+        elif response_text == "resell":
             return {"r": "resell", "g": "Congrats! Your item is fit for resell! 🎉"}
 
-        if response_text == "IGN":
+        else:
             return {"r": "IGN", "g": "IGN"}
-
-        # If the item needs to be recycled, generate guidance
-        guide_prompt = (
-            f"You are an AI that provides detailed guidance on how to recycle {product_name}. "
-            f"Provide a structured JSON response with an introduction and specific pointers, based on the user's answers: {user_answers}. "
-            "Format your response as follows: "
-            "{ 'initials': '<brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
-        )
 
         guide_response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[guide_prompt, user_input]
         )
         guide_text = guide_response.text if hasattr(guide_response, "text") else str(guide_response).strip()
 
-        # Ensure valid JSON response from Gemini
         try:
             guide_json = json.loads(guide_text)
         except json.JSONDecodeError:
             guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
+        guide_json = guide_text
 
         return {"r": response_text, "g": guide_json}
 
