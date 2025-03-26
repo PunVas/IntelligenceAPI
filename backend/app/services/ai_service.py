@@ -69,7 +69,7 @@ def categorize_ewaste_image(image_bytes: bytes) -> dict:
 
         system_prompt = (
     "You are an AI-powered e-waste image classifier, product describer, and search tags generator. "
-    "Choose one generic tag **strictly** from this predefined list: ['Mobile Devices', 'Computers and Laptops', 'Computer Accessories','Networking Equipment', 'Audio and Video Devices', 'Storage Devices', 'Batteries and Power Supplies','Home Appliances', 'Gaming and Entertainment', 'Office Electronics', 'Industrial and Medical Equipment', 'Car Electronics']. "
+    "Choose one generic tag **very very strictly** from this predefined list: ['Mobile Devices', 'Computers and Laptops', 'Computer Accessories','Networking Equipment', 'Audio and Video Devices', 'Storage Devices', 'Batteries and Power Supplies','Home Appliances', 'Gaming and Entertainment', 'Office Electronics', 'Industrial and Medical Equipment', 'Car Electronics']. "
     "Strictly return a **raw python dictionary ** in this format (without any markdown or extra formatting): "
     "{\"category\": \"Laptop Battery\", \"desc\": \"<product description here>\", \"search_tags\": [\"tag1\", \"tag2\", \"tag3\"], \"generic_tag\": \"tag\"}. "
     "Format the product description using '\\n' for new lines, like this and it must be like 100 words long at max: \"desc\": \"This laptop is\\n1) 4 years old\\n2) Has i7 112500H processor and RTX 3050Ti\\n3) Has minor scratches\". "
