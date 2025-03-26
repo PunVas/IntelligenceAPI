@@ -159,7 +159,14 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         guide_response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[guide_prompt, user_input]
         )
-        guide_text = guide_response.text if hasattr(guide_response, "text") else str(guide_response).strip()
+        import json
+
+        try:
+            guide_text = guide_response.text if hasattr(guide_response, "text") else str(guide_response).strip()
+            guide_dict = json.loads(guide_text)  # Convert JSON string to dictionary
+        except json.JSONDecodeError:
+            guide_dict = {"initials": "Error processing response.", "pointers": {}}
+
 
         # try:
         #     guide_json = json.loads(guide_text)
