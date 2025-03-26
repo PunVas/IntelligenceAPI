@@ -165,7 +165,7 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         #     guide_json = json.loads(guide_text)
         # except json.JSONDecodeError:
         #     guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
-        guide_json=json.loads(guide_text)
+        guide_json=dict(json.loads(guide_text))
 
         return {"r": response_text, "g": guide_json}
 
