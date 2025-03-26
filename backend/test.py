@@ -39,7 +39,7 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
                 f"You are an AI that provides detailed guidance on how to recycle {product_name}. "
                 f"Provide a structured JSON response with an introduction and specific pointers, based on the user's answers: {user_answers}. "
                 "Format your response as follows: "
-                "{ 'initials': '<brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
+                "{ 'initials': '<brief introduction>', 'pointers': { '<heading of point 1>': '<point 1 details>', '<heading of point 2>': '<point 2 details>', ... } }"
             )
 
         elif response_text == "resell":
