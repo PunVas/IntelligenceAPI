@@ -122,9 +122,6 @@ def give_ques(product_name: str) -> dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
 
-import json
-from fastapi import HTTPException
-
 def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers: str) -> dict:
     try:
         system_prompt = (
@@ -148,33 +145,28 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         if response_text == "recycle":
             guide_prompt = (
                 f"You are an AI that provides detailed guidance on how to recycle {product_name}. "
-                f"User's answers: {user_answers}. "
+                f"Provide a structured JSON response with an introduction and specific pointers, based on the user's answers: {user_answers}. "
                 "Format your response as follows: "
-                "{ 'initials': '<very brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
-                "Do NOT format as JSON. Just return the response in the given format, with no extra newlines or special characters."
+                "{ 'initials': '<brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
             )
 
         elif response_text == "resell":
-            return {"decision": "resell", "guide": "Congrats! Your item is fit for resell! 🎉"}
+            return {"r": "resell", "g": "Congrats! Your item is fit for resell! 🎉"}
 
         else:
-            return {"decision": "IGN", "guide": "IGN"}
+            return {"r": "IGN", "g": "IGN"}
 
-        # Generate recycling guide
         guide_response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[guide_prompt, user_input]
         )
+        guide_text = guide_response.text if hasattr(guide_response, "text") else str(guide_response).strip()
 
-        # Extract actual text
-        guide_text = str(guide_response).strip("\n").strip("```").strip("json")
-
-        # Try parsing as a dictionary if possible
         try:
-            guide_json = json.loads(guide_text.replace("'", "\""))  # Convert single quotes to double quotes for valid JSON
+            guide_json = json.loads(guide_text)
         except json.JSONDecodeError:
             guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
 
-        return {"decision": response_text, "guide": guide_json}
+        return {"r": response_text, "g": guide_json}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
