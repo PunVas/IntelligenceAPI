@@ -160,14 +160,14 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         guide_response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[guide_prompt, user_input]
         )
-        guide_text =  str(guide_response).strip()
+        guide_text =  str(guide_response).strip("\n").strip("```").strip("json")
 
-        try:
-            guide_json = json.loads(guide_text)
-        except json.JSONDecodeError:
-            guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
-        guide_json = guide_text
-
+        # try:
+        #     guide_json = json.loads(guide_text)
+        # except json.JSONDecodeError:
+        #     guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
+        # guide_json = guide_text
+        guide_json = dict(guide_text)
         return {"r": response_text, "g": guide_json}
 
     except Exception as e:
