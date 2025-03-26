@@ -132,7 +132,7 @@ def decide_recycle_or_resell(product_name: str,product_desc:str, user_answers: s
     "Carefully analyze the answers and follow these strict rules: "
     "- Return 'resell' **only if ALL key details** (physical condition, battery life, full functionality of components, and complete specifications including processor, RAM, and storage) are provided and indicate the item is in excellent or good working condition. judge strictly on the basis of the technically correct answers to the questions. "
     "- Return 'recycle' **if ANY key detail is indicates** that the item is damaged, non-functional, outdated, or unsuitable for resale. Even if most details are positive, missing critical information (like RAM, storage, or battery status) must result in 'recycle'.  judge strictly on the basis of the technically correct answers to the questions. "
-    "- Return 'IGN' **if the answers are missing, unclear, gibberish, incomplete or mentioned as variable or not clearly stated or unrelated** to the product's condition or they are just like that 'this is recyclable' or 'this is resellable'"
+    "- Return 'IGN' ** only if the answers are missing, gibberish, mentioned as variable or unrelated** to the product's condition or they are just like 'this is recyclable' or 'this is resellable'"
     "Respond with a single word only: 'resell', 'recycle', or 'IGN'. Do NOT include any extra text, punctuation, or newlines."
 )
 
@@ -140,7 +140,7 @@ def decide_recycle_or_resell(product_name: str,product_desc:str, user_answers: s
         user_input = json.dumps({"answers": user_answers})
 
         response = client.models.generate_content(
-            model=USE_MODEL, contents=[system_prompt, user_input]
+            model="gemini-2.0-flash", contents=[system_prompt, user_input]
         )
         response_text = response.text.strip() if hasattr(response, "text") else str(response).strip()
 
@@ -159,7 +159,7 @@ def decide_recycle_or_resell(product_name: str,product_desc:str, user_answers: s
             return {"r":"IGN", "g":"IGN"}
 
         guide_response = client.models.generate_content(
-            model=USE_MODEL, contents=[guide_prompt, user_input]
+            model="gemini-2.0-flash", contents=[guide_prompt, user_input]
         )
         guide_text = guide_response.text if hasattr(guide_response, "text") else str(guide_response).strip()
         
