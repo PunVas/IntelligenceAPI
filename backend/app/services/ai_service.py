@@ -145,7 +145,7 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         if response_text == "recycle":
             guide_prompt = (
                 f"You are an AI that provides detailed guidance on how to recycle {product_name}. "
-                f"Provide a structured JSON response with an introduction and specific pointers, based on the user's answers: {user_answers}. "
+                f"Provide a structured response with an introduction and specific pointers, based on the user's answers: {user_answers}. "
                 "Format your response as follows: "
                 "{ 'initials': '<brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
             )
