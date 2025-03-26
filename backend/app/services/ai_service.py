@@ -167,7 +167,7 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         #     guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
         guide_json = guide_text
 
-        return {"r": response_text, "g": guide_json}
+        return {"r": response_text, "g": {"d":str(guide_json)}}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
