@@ -125,11 +125,11 @@ def give_ques(product_name: str) -> dict:
 def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers: str) -> dict:
     try:
         system_prompt = (
-            f"You are an AI that determines whether an item should be 'resold' or 'recycled' based on its condition, functionality, and completeness of information. "
+            f"You are an AI that determines whether an item should be 'resell' or 'recycle' based on its condition, functionality, and completeness of information. "
             f"The product is '{product_name}', and the initial item description is: {product_desc}. "
             f"The user has provided the following answers to relevant questions: {user_answers}. "
             "Carefully analyze the answers and follow these strict rules: "
-            "- Return 'resell' **only if ALL key details** (physical condition, battery life, full functionality of components, and complete specifications including processor, RAM, and storage) are provided and indicate the item is in excellent or good working condition. Judge strictly based on the technically correct answers to the questions. "
+            "- Return 'resell' **only if you feel according to responses that the item is n good condition**"
             "- Return 'recycle' **if ANY key detail indicates** that the item is damaged, non-functional, outdated, or unsuitable for resale. Even if most details are positive, missing critical information (like RAM, storage, or battery status) must result in 'recycle'. Judge strictly based on the technically correct answers to the questions. "
             "- Return 'IGN' **only if the answers are missing, gibberish, mentioned as variable, or unrelated** to the product's condition, or if they are statements like 'this is recyclable' or 'this is resellable'. "
             "Respond with a single word only: 'resell', 'recycle', or 'IGN'. Do NOT include any extra text, punctuation, or newlines."
