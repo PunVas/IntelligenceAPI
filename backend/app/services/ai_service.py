@@ -152,10 +152,10 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
             )
 
         elif response_text == "resell":
-            return {"r": "resell", "g": "Congrats! Your item is fit for resell! 🎉"}
+            return {"r": "resell", "g": {"Congrats! Your item is fit for resell! 🎉"}}
 
         else:
-            return {"r": "IGN", "g": "IGN"}
+            return {"r": "IGN", "g": {"IGN"}}
 
         guide_response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[guide_prompt, user_input]
