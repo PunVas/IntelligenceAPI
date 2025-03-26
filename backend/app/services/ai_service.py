@@ -163,7 +163,7 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         guide_text = guide_response.text.strip("```").strip("json").strip("\n") if hasattr(guide_response, "text") else str(guide_response).strip("```").strip("json").strip("\n")
 
         guide_json=dict(json.loads(guide_text))
-        guide_json['pointers']={"headings":list(guide_json.pointers.keys()),"description":list(guide_json.pointers.values())}
+        guide_json['pointers']={"headings":list(guide_json['pointers'].keys()),"description":list(guide_json['pointers'].values())}
 
 
         return {"r": response_text, "g": guide_json}
