@@ -122,20 +122,18 @@ def give_ques(product_name: str) -> dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
 
-def decide_recycle_or_resell(product_name: str,product_desc:str, user_answers: str) -> dict:
-
+def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers: str) -> dict:
     try:
         system_prompt = (
-    f"You are an AI that determines whether an item should be 'resold' or 'recycled' based on its condition, functionality, and completeness of information."
-    f"The product is '{product_name}', and the initial item description is: {product_desc}. "
-    f"The user has provided the following answers to relevant questions: {user_answers}. "
-    "Carefully analyze the answers and follow these strict rules: "
-    "- Return 'resell' **only if ALL key details** (physical condition, battery life, full functionality of components, and complete specifications including processor, RAM, and storage) are provided and indicate the item is in excellent or good working condition. judge strictly on the basis of the technically correct answers to the questions. "
-    "- Return 'recycle' **if ANY key detail is indicates** that the item is damaged, non-functional, outdated, or unsuitable for resale. Even if most details are positive, missing critical information (like RAM, storage, or battery status) must result in 'recycle'.  judge strictly on the basis of the technically correct answers to the questions. "
-    "- Return 'IGN' ** only if the answers are missing, gibberish, mentioned as variable or unrelated** to the product's condition or they are just like 'this is recyclable' or 'this is resellable'"
-    "Respond with a single word only: 'resell', 'recycle', or 'IGN'. Do NOT include any extra text, punctuation, or newlines."
-)
-
+            f"You are an AI that determines whether an item should be 'resold' or 'recycled' based on its condition, functionality, and completeness of information. "
+            f"The product is '{product_name}', and the initial item description is: {product_desc}. "
+            f"The user has provided the following answers to relevant questions: {user_answers}. "
+            "Carefully analyze the answers and follow these strict rules: "
+            "- Return 'resell' **only if ALL key details** (physical condition, battery life, full functionality of components, and complete specifications including processor, RAM, and storage) are provided and indicate the item is in excellent or good working condition. Judge strictly based on the technically correct answers to the questions. "
+            "- Return 'recycle' **if ANY key detail indicates** that the item is damaged, non-functional, outdated, or unsuitable for resale. Even if most details are positive, missing critical information (like RAM, storage, or battery status) must result in 'recycle'. Judge strictly based on the technically correct answers to the questions. "
+            "- Return 'IGN' **only if the answers are missing, gibberish, mentioned as variable, or unrelated** to the product's condition, or if they are statements like 'this is recyclable' or 'this is resellable'. "
+            "Respond with a single word only: 'resell', 'recycle', or 'IGN'. Do NOT include any extra text, punctuation, or newlines."
+        )
 
         user_input = json.dumps({"answers": user_answers})
 
@@ -146,24 +144,29 @@ def decide_recycle_or_resell(product_name: str,product_desc:str, user_answers: s
 
         if response_text == "recycle":
             guide_prompt = (
-                f"You are an AI that provides guidance on how to recycle {product_name}. "
-                f"Provide a detailed and concise guide based on the user's answers: {user_answers}."
+                f"You are an AI that provides detailed guidance on how to recycle {product_name}. "
+                f"Provide a structured JSON response with an introduction and specific pointers, based on the user's answers: {user_answers}. "
+                "Format your response as follows: "
+                "{ 'initials': '<brief introduction>', 'pointers': { 'pt1': '<point 1 details>', 'pt2': '<point 2 details>', ... } }"
             )
-            
+
         elif response_text == "resell":
-            guide_prompt = (
-                f"You are an AI that provides guidance on how to reuse {product_name}. "
-                f"Provide a detailed and concise guide based on the user's answers: {user_answers}."
-            )
+            return {"r": "resell", "g": "Congrats! Your item is fit for resell! 🎉"}
+
         else:
-            return {"r":"IGN", "g":"IGN"}
+            return {"r": "IGN", "g": "IGN"}
 
         guide_response = client.models.generate_content(
             model="gemini-2.0-flash", contents=[guide_prompt, user_input]
         )
         guide_text = guide_response.text if hasattr(guide_response, "text") else str(guide_response).strip()
-        
-        return {"r":str(response_text), "g":str(guide_text)}
+
+        try:
+            guide_json = json.loads(guide_text)
+        except json.JSONDecodeError:
+            guide_json = {"initials": "Recycling instructions not available.", "pointers": {}}
+
+        return {"r": response_text, "g": guide_json}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
