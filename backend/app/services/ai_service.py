@@ -77,7 +77,7 @@ def categorize_ewaste_image(image_bytes: bytes) -> dict:
     "keep product name short don't make it very descriptive"
     "DO NOT add any markdown formatting (such as ```json ... ```) or any extra text. "
     "ONLY return the text. If the image is not an electronic item, or containes more than 1 electronic item or the image is unfit for customer to take decision or if it is blurry or unclear, return this exact dictionary: {\"category\": \"IGN\", \"desc\": \"IGN\", \"generic_tag\": \"IGN\",\"search_tags\":[\"IGN\"]}."
-    "This is a sample output that you have to give out : {\"category\":\"Laptop\",\"desc\":\"This is a gaming laptop,\nwith a sleek design and\nbacklit keyboard.\",\"search_tags\":[\"gaming laptop\",\"laptop\",\"computer\",\"asus tuf\"],\"generic_tag\":\"Computers and Laptops\"}"
+    "This is a sample output that you have to give out : {\"category\":\"Laptop\",\"desc\":\"This is a gaming laptop,\nwith a sleek design and\nbacklit keyboard.\",\"search_tags\":[\"gaming laptop\",\"laptop\",\"computer\",\"asus tuf\"],\"generic_tag\":\"<suitable tag from the predefined list>\"}"
 
 )
 
