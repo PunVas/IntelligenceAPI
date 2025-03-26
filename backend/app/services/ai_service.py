@@ -152,7 +152,7 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
             )
 
         elif response_text == "resell":
-            return {"r": "resell", "g": {"initials":"Congrats! Your item is fit for resell! 🎉","pointers":{"headings":["IGN"],"description":["IGN"]}}}
+            return {"r": "resell", "g": {"initials":"Congrats! Your item is fit to be resold!","pointers":{"headings":["IGN"],"description":["IGN"]}}}
 
         else:
             return {"r": "IGN", "g": {"initials":"IGN","pointers":{"headings":["IGN"],"description":["IGN"]}}}
