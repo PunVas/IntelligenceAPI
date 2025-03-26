@@ -48,6 +48,7 @@ class ImageDataResponse(BaseModel):
     search_tags: List[str] | None = None
     category: str
 
+
 class QuestionGetterResponse(BaseModel):
     """Response model for AI-generated questions."""
     questions: List[str]
@@ -86,7 +87,7 @@ async def categorize_e_waste_base64(image_data: ImageDataInput, current_user: di
     try:
         image_bytes = base64.b64decode(image_data.image_base64)
         c=categorize_ewaste_image(image_bytes)
-        return ImageDataResponse(title=c['category'],desc=c['desc'],search_tags=c['search_tags'],category=c['category'])
+        return ImageDataResponse(title=c['category'],desc=c['desc'],search_tags=c['search_tags'],category=c['generic_tag'])
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
