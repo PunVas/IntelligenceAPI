@@ -38,7 +38,7 @@ class DecisionInput(BaseModel):
 class DecisionResponse(BaseModel):
     """Response model for item decision (Recycle or Resell)."""
     decision: str  # Expected values: "resell", "recycle", or "IGN"
-    guide: Optional[Dict[str, Dict[str, list]]]=None
+    guide:dict# Optional[Dict[str, Dict[str, list]]]=None
 
 
 class ImageDataResponse(BaseModel):
