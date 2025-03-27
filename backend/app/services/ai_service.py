@@ -116,8 +116,11 @@ def give_ques(product_name: str) -> dict:
             json_response = json.loads(response_text)
             return json_response
         except json.JSONDecodeError:
-            
-            return {"questions":[x.strip() for x in response_text[1:-2].split("', '")]}
+            qarr=[x.strip() for x in response_text[1:-2].split("', '")]
+            if len(qarr)!=1:
+                return {"questions":qarr}
+            else:
+                 return {"questions":[x.strip() for x in response_text[1:-2].split("','")]}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
@@ -152,7 +155,12 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
             )
 
         elif response_text == "resell":
-            return {"r": "resell", "g": {"initials":"Congrats! Your item is fit to be resold!","pointers":{"headings":["IGN"],"description":["IGN"]}}}
+            guide_prompt = (
+                f"You are an AI that provides detailed guidance on how to reuse {product_name}. "
+                f"Provide a structured JSON response with an introduction and specific pointers, based on the user's answers: {user_answers}. "
+                "Format your response as follows: "
+                "{ 'initials': '<brief introduction>', 'pointers': { '<heading of point 1>': '<point 1 details>', '<heading of point 2>': '<point 2 details>', ... } }"
+            )
 
         else:
             return {"r": "IGN", "g": {"initials":"IGN","pointers":{"headings":["IGN"],"description":["IGN"]}}}

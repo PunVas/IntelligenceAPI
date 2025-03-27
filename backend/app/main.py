@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, WebSocket
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Optional
 import base64
 from app.auth.jwt_handler import get_current_user
 from app.services.ai_service import generate_product_description, generate_tags, categorize_ewaste_image, decide_recycle_or_resell, give_ques, websocket_endpoint
@@ -37,9 +37,9 @@ class DecisionInput(BaseModel):
 
 class DecisionResponse(BaseModel):
     """Response model for item decision (Recycle or Resell)."""
-    decision: str
-    # guide: dict  # Optional additional guidance if applicable
-    guide: dict
+    decision: str  # Expected values: "resell", "recycle", or "IGN"
+    guide: Dict[str, Dict[str, list]]
+
 
 class ImageDataResponse(BaseModel):
     """Response model for e-waste categorization."""
