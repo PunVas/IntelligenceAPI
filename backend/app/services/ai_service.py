@@ -160,6 +160,8 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
                 f"Provide a structured JSON response with an introduction and specific pointers, based on the user's answers: {user_answers}. "
                 "Format your response as follows: "
                 "{ 'initials': '<brief introduction>', 'pointers': { '<heading of point 1>': '<point 1 details>', '<heading of point 2>': '<point 2 details>', ... } }"
+                "heading of points must be like: Reuse or Donation"
+
             )
 
         else:
