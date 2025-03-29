@@ -18,10 +18,16 @@ from app.services.ai_service import (
     decide_recycle_or_resell, give_ques, websocket_endpoint
 )
 
+from datetime import datetime, timezone, timedelta
+import json
+import time
+from fastapi import FastAPI, Request
+
 LOG_FILE = "logs.json"
 
 
 app = FastAPI()
+IST = timezone(timedelta(hours=5, minutes=30))  # Define IST timezone
 
 
 def log_request(request_data: dict):
