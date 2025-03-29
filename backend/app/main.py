@@ -26,24 +26,30 @@ def log_request(request_data: dict):
     except Exception as e:
         print("Logging failed:", e)
 
+from fastapi.responses import JSONResponse
+
 @app.middleware("http")
 async def log_middleware(request: Request, call_next):
-    """Middleware to log all request details, including errors and responses."""
+    """Middleware to log all request details, including detailed errors."""
     start_time = time.time()
     request_body = await request.body()
     headers = dict(request.headers)
-    error_reason = None  # Default: No error
+    error_reason = None
+    response_status = 200  # Default status
 
     try:
         response = await call_next(request)
-        response_body = None  # No error, successful response
+        response_body = None  # Successful response
+        response_status = response.status_code  # Capture the response status
     except HTTPException as http_exc:
         response_body = {"detail": http_exc.detail}
-        error_reason = http_exc.detail
-        response = JSONResponse(content=response_body, status_code=http_exc.status_code)
+        error_reason = http_exc.detail  # Capture FastAPI's error message
+        response_status = http_exc.status_code
+        response = JSONResponse(content=response_body, status_code=response_status)
     except Exception as e:
         response_body = {"detail": str(e)}
-        error_reason = str(e)
+        error_reason = str(e)  # Capture any other exceptions
+        response_status = 500
         response = JSONResponse(content=response_body, status_code=500)
 
     end_time = time.time()
@@ -55,13 +61,14 @@ async def log_middleware(request: Request, call_next):
         "query_params": dict(request.query_params),
         "headers": headers,
         "request_body": request_body.decode("utf-8") if request_body else None,
-        "status_code": response.status_code,
-        "error_reason": error_reason,  # ✅ Now logs error message if available
+        "status_code": response_status,
+        "error_reason": error_reason,  # ✅ Will now capture error details properly
         "response_time": round(end_time - start_time, 4),
     }
 
     log_request(log_entry)
     return response
+
 
 
 @app.get("/logs/")
