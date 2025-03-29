@@ -4,7 +4,89 @@ from typing import List, Dict, Optional
 import base64
 from app.auth.jwt_handler import get_current_user
 from app.services.ai_service import generate_product_description, generate_tags, categorize_ewaste_image, decide_recycle_or_resell, give_ques, websocket_endpoint
+
+
+import json
+import time
+from datetime import datetime, timezone
+from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket
+from pydantic import BaseModel
+from typing import List, Dict, Optional
+from app.auth.jwt_handler import get_current_user
+from app.services.ai_service import (
+    generate_product_description, generate_tags, categorize_ewaste_image, 
+    decide_recycle_or_resell, give_ques, websocket_endpoint
+)
+
+LOG_FILE = "logs.json"
+
+
 app = FastAPI()
+
+
+def log_request(request_data: dict):
+    """Logs request and response details."""
+    try:
+        with open(LOG_FILE, "a") as log_file:
+            log_file.write(json.dumps(request_data) + "\n")
+    except Exception as e:
+        print("Logging failed:", e)
+
+from datetime import datetime, timezone, timedelta
+
+IST = timezone(timedelta(hours=5, minutes=30))  # Define IST timezone
+
+@app.middleware("http")
+async def log_middleware(request: Request, call_next):
+    """Middleware to log requests and responses."""
+    start_time = time.time()
+    request_body = await request.body()
+    
+    response = await call_next(request)
+    end_time = time.time()
+
+    log_entry = {
+        "timestamp": datetime.now(IST).isoformat(),  # Use IST time
+        "method": request.method,
+        "path": request.url.path,
+        "query_params": dict(request.query_params),
+        "request_body": request_body.decode("utf-8") if request_body else None,
+        "status_code": response.status_code,
+        "response_time": round(end_time - start_time, 4)
+    }
+    
+    log_request(log_entry)
+    
+    return response
+
+
+@app.get("/logs/")
+async def get_logs(start_time: str, end_time: str):
+    """
+    Retrieve logs within a specific time range.
+    - **start_time**: Start timestamp in ISO format (e.g., "2025-03-30T12:00:00").
+    - **end_time**: End timestamp in ISO format (e.g., "2025-03-30T14:00:00").
+    """
+    try:
+        start = datetime.fromisoformat(start_time).replace(tzinfo=IST)
+        end = datetime.fromisoformat(end_time).replace(tzinfo=IST)
+        logs = []
+
+        with open(LOG_FILE, "r") as log_file:
+            for line in log_file:
+                entry = json.loads(line)
+                log_time = datetime.fromisoformat(entry["timestamp"]).replace(tzinfo=IST)
+                if start <= log_time <= end:
+                    logs.append(entry)
+
+        return logs
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
+
+
+
+
 class DescriptionInput(BaseModel): 
     """Model for receiving text input from users."""
     prod_desc_by_user: str
@@ -128,3 +210,17 @@ async def decide_resell_or_recycle(data: DecisionInput, current_user: dict = Dep
     
 
 
+# from fastapi import FastAPI
+# from fastapi.responses import RedirectResponse
+
+# app = FastAPI()
+
+# TARGET_URL = "https://github.com/Akshit2807/e_waste_app/releases/latest"
+
+# @app.get("/")
+# def redirect_to_github():
+#     return RedirectResponse(url=TARGET_URL, status_code=302)
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
