@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, Request, JSONResponse
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import base64
