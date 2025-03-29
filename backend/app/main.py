@@ -28,19 +28,22 @@ def log_request(request_data: dict):
 
 @app.middleware("http")
 async def log_middleware(request: Request, call_next):
-    """Middleware to log all request details, including error reasons."""
+    """Middleware to log all request details, including errors and responses."""
     start_time = time.time()
     request_body = await request.body()
     headers = dict(request.headers)
+    error_reason = None  # Default: No error
 
     try:
         response = await call_next(request)
-        response_body = None
+        response_body = None  # No error, successful response
     except HTTPException as http_exc:
         response_body = {"detail": http_exc.detail}
+        error_reason = http_exc.detail
         response = JSONResponse(content=response_body, status_code=http_exc.status_code)
     except Exception as e:
         response_body = {"detail": str(e)}
+        error_reason = str(e)
         response = JSONResponse(content=response_body, status_code=500)
 
     end_time = time.time()
@@ -53,12 +56,13 @@ async def log_middleware(request: Request, call_next):
         "headers": headers,
         "request_body": request_body.decode("utf-8") if request_body else None,
         "status_code": response.status_code,
-        "error_reason": response_body["detail"] if response_body else None,
-        "response_time": round(end_time - start_time, 4)
+        "error_reason": error_reason,  # ✅ Now logs error message if available
+        "response_time": round(end_time - start_time, 4),
     }
 
     log_request(log_entry)
     return response
+
 
 @app.get("/logs/")
 async def get_logs(start_time: str, end_time: str):
