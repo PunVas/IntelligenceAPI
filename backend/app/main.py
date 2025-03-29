@@ -1,34 +1,21 @@
-from fastapi import FastAPI, HTTPException, Depends, WebSocket
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, Request, JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import base64
-from app.auth.jwt_handler import get_current_user
-from app.services.ai_service import generate_product_description, generate_tags, categorize_ewaste_image, decide_recycle_or_resell, give_ques, websocket_endpoint
-
-
 import json
 import time
-from datetime import datetime, timezone
-from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket
-from pydantic import BaseModel
-from typing import List, Dict, Optional
+from datetime import datetime, timezone, timedelta
+
 from app.auth.jwt_handler import get_current_user
 from app.services.ai_service import (
     generate_product_description, generate_tags, categorize_ewaste_image, 
     decide_recycle_or_resell, give_ques, websocket_endpoint
 )
 
-from datetime import datetime, timezone, timedelta
-import json
-import time
-from fastapi import FastAPI, Request
-
 LOG_FILE = "logs.json"
-
-
-app = FastAPI()
 IST = timezone(timedelta(hours=5, minutes=30))  # Define IST timezone
 
+app = FastAPI()
 
 def log_request(request_data: dict):
     """Logs request and response details."""
@@ -40,29 +27,37 @@ def log_request(request_data: dict):
 
 @app.middleware("http")
 async def log_middleware(request: Request, call_next):
-    """Middleware to log all request details."""
+    """Middleware to log all request details, including error reasons."""
     start_time = time.time()
     request_body = await request.body()
     headers = dict(request.headers)
 
-    # Call the next middleware/handler
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+        response_body = None
+    except HTTPException as http_exc:
+        response_body = {"detail": http_exc.detail}
+        response = JSONResponse(content=response_body, status_code=http_exc.status_code)
+    except Exception as e:
+        response_body = {"detail": str(e)}
+        response = JSONResponse(content=response_body, status_code=500)
+
     end_time = time.time()
 
     log_entry = {
-        "timestamp": datetime.now(IST).isoformat(),  # Use IST time
+        "timestamp": datetime.now(IST).isoformat(),
         "method": request.method,
         "path": request.url.path,
         "query_params": dict(request.query_params),
-        "headers": headers,  # Log all headers, including Auth token
+        "headers": headers,
         "request_body": request_body.decode("utf-8") if request_body else None,
         "status_code": response.status_code,
+        "error_reason": response_body["detail"] if response_body else None,
         "response_time": round(end_time - start_time, 4)
     }
 
     log_request(log_entry)
     return response
-
 
 @app.get("/logs/")
 async def get_logs(start_time: str, end_time: str):
