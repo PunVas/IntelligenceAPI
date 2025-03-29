@@ -32,16 +32,14 @@ def log_request(request_data: dict):
     except Exception as e:
         print("Logging failed:", e)
 
-from datetime import datetime, timezone, timedelta
-
-IST = timezone(timedelta(hours=5, minutes=30))  # Define IST timezone
-
 @app.middleware("http")
 async def log_middleware(request: Request, call_next):
-    """Middleware to log requests and responses."""
+    """Middleware to log all request details."""
     start_time = time.time()
     request_body = await request.body()
-    
+    headers = dict(request.headers)
+
+    # Call the next middleware/handler
     response = await call_next(request)
     end_time = time.time()
 
@@ -50,13 +48,13 @@ async def log_middleware(request: Request, call_next):
         "method": request.method,
         "path": request.url.path,
         "query_params": dict(request.query_params),
+        "headers": headers,  # Log all headers, including Auth token
         "request_body": request_body.decode("utf-8") if request_body else None,
         "status_code": response.status_code,
         "response_time": round(end_time - start_time, 4)
     }
-    
+
     log_request(log_entry)
-    
     return response
 
 
