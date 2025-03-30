@@ -225,7 +225,7 @@ async def categorize_e_waste_base64(image_data: ImageDataInput, current_user: di
             title=c.get('category', 'Unknown'),
             desc=c.get('desc', 'No description'),
             search_tags=c.get('search_tags', []),
-            category=c.get('genric_tag', 'Unknown')
+            category=c.get('generic_tag', 'Unknown')
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
