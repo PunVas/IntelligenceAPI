@@ -1,100 +1,108 @@
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, Request, Response, Query
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List
 import base64
 import json
-import time
-from datetime import datetime, timezone, timedelta
+import datetime
+import logging
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import StreamingResponse
+from zoneinfo import ZoneInfo
 
-from app.auth.jwt_handler import get_current_user
-from app.services.ai_service import (
-    generate_product_description, generate_tags, categorize_ewaste_image, 
-    decide_recycle_or_resell, give_ques, websocket_endpoint
+# Import services and authentication
+from auth.jwt_handler import get_current_user
+from services.ai_service import (
+    generate_product_description,
+    generate_tags,
+    categorize_ewaste_image,
+    decide_recycle_or_resell,
+    give_ques,
+    websocket_endpoint,
 )
 
-LOG_FILE = "logs.json"
-IST = timezone(timedelta(hours=5, minutes=30))  # Define IST timezone
-
+# Initialize FastAPI
 app = FastAPI()
 
-def log_request(request_data: dict):
-    """Logs request and response details."""
-    try:
-        with open(LOG_FILE, "a") as log_file:
-            log_file.write(json.dumps(request_data) + "\n")
-    except Exception as e:
-        print("Logging failed:", e)
+# Configure logging
+logging.basicConfig(filename="logs.json", level=logging.INFO, format="%(message)s")
 
-from fastapi.responses import JSONResponse
-
-@app.middleware("http")
-async def log_middleware(request: Request, call_next):
-    """Middleware to log all request details, including detailed errors."""
-    start_time = time.time()
-    request_body = await request.body()
-    headers = dict(request.headers)
-    error_reason = None
-    response_status = 200  # Default status
-
-    try:
-        response = await call_next(request)
-        response_body = None  # Successful response
-        response_status = response.status_code  # Capture the response status
-    except HTTPException as http_exc:
-        response_body = {"detail": http_exc.detail}
-        error_reason = http_exc.detail  # Capture FastAPI's error message
-        response_status = http_exc.status_code
-        response = JSONResponse(content=response_body, status_code=response_status)
-    except Exception as e:
-        response_body = {"detail": str(e)}
-        error_reason = str(e)  # Capture any other exceptions
-        response_status = 500
-        response = JSONResponse(content=response_body, status_code=500)
-
-    end_time = time.time()
-
-    log_entry = {
-        "timestamp": datetime.now(IST).isoformat(),
-        "method": request.method,
-        "path": request.url.path,
-        "query_params": dict(request.query_params),
-        "headers": headers,
-        "request_body": request_body.decode("utf-8") if request_body else None,
-        "status_code": response_status,
-        "error_reason": error_reason,  # ✅ Will now capture error details properly
-        "response_time": round(end_time - start_time, 4),
-    }
-
-    log_request(log_entry)
-    return response
+# Timezone configuration
+IST = ZoneInfo("Asia/Kolkata")
 
 
+class LogMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start_time = datetime.datetime.now(datetime.UTC)  # ✅ Correct UTC time
 
-@app.get("/logs/")
-async def get_logs(start_time: str, end_time: str):
+        # Read request body safely
+        try:
+            body_bytes = await request.body()
+            request_body = body_bytes.decode("utf-8") if body_bytes else None
+        except Exception as e:
+            request_body = f"Error reading body: {str(e)}"
+
+        request_data = {
+            "time": start_time.isoformat(),
+            "method": request.method,
+            "url": str(request.url),
+            "headers": dict(request.headers),
+            "body": request_body,
+        }
+
+        try:
+            # Capture response
+            response = await call_next(request)
+            response_body = [chunk async for chunk in response.body_iterator]
+            response_content = b"".join(response_body).decode("utf-8") if response_body else None
+
+            # Clone response for returning
+            new_response = StreamingResponse(
+                iter(response_body), status_code=response.status_code, headers=dict(response.headers)
+            )
+
+            request_data["status_code"] = response.status_code
+            request_data["response_body"] = response_content
+        except Exception as e:
+            request_data["error"] = str(e)
+            request_data["status_code"] = 500
+            logging.error(json.dumps(request_data))
+            raise HTTPException(status_code=500, detail="Internal Server Error")
+
+        logging.info(json.dumps(request_data))
+        return new_response
+
+
+app.add_middleware(LogMiddleware)
+
+
+@app.get("/logs")
+async def get_logs(
+    start_time: str = Query(..., description="Start time in YYYY-MM-DDTHH:MM:SS format (IST)"),
+    end_time: str = Query(..., description="End time in YYYY-MM-DDTHH:MM:SS format (IST)"),
+):
     """
-    Retrieve logs within a specific time range.
-    - **start_time**: Start timestamp in ISO format (e.g., "2025-03-30T12:00:00").
-    - **end_time**: End timestamp in ISO format (e.g., "2025-03-30T14:00:00").
+    Fetch logs between a given time range (Input time in IST).
     """
     try:
-        start = datetime.fromisoformat(start_time).replace(tzinfo=IST)
-        end = datetime.fromisoformat(end_time).replace(tzinfo=IST)
-        logs = []
+        # Convert IST to UTC for querying logs
+        start_utc = datetime.datetime.fromisoformat(start_time).replace(tzinfo=IST).astimezone(datetime.UTC)
+        end_utc = datetime.datetime.fromisoformat(end_time).replace(tzinfo=IST).astimezone(datetime.UTC)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DDTHH:MM:SS")
 
-        with open(LOG_FILE, "r") as log_file:
+    logs = []
+    try:
+        with open("logs.json", "r", encoding="utf-8") as log_file:
             for line in log_file:
-                entry = json.loads(line)
-                log_time = datetime.fromisoformat(entry["timestamp"]).replace(tzinfo=IST)
-                if start <= log_time <= end:
-                    logs.append(entry)
+                log_entry = json.loads(line)
+                log_time = datetime.datetime.fromisoformat(log_entry["time"])
 
-        return logs
+                if start_utc <= log_time <= end_utc:
+                    logs.append(log_entry)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Log file not found")
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
-
+    return {"logs": logs}
 
 
 
@@ -130,9 +138,8 @@ class DecisionInput(BaseModel):
 
 class DecisionResponse(BaseModel):
     """Response model for item decision (Recycle or Resell)."""
-    decision: str  # Expected values: "resell", "recycle", or "IGN"
-    guide:dict# Optional[Dict[str, Dict[str, list]]]=None
-
+    decision: str
+    guide: dict  # Optional additional guidance if applicable
 
 class ImageDataResponse(BaseModel):
     """Response model for e-waste categorization."""
@@ -140,7 +147,6 @@ class ImageDataResponse(BaseModel):
     desc: str
     search_tags: List[str] | None = None
     category: str
-
 
 class QuestionGetterResponse(BaseModel):
     """Response model for AI-generated questions."""
@@ -180,7 +186,7 @@ async def categorize_e_waste_base64(image_data: ImageDataInput, current_user: di
     try:
         image_bytes = base64.b64decode(image_data.image_base64)
         c=categorize_ewaste_image(image_bytes)
-        return ImageDataResponse(title=c['category'],desc=c['desc'],search_tags=c['search_tags'],category=c['generic_tag'])
+        return ImageDataResponse(title=c['category'],desc=c['desc'],search_tags=c['search_tags'],category=c['category'])
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -221,17 +227,3 @@ async def decide_resell_or_recycle(data: DecisionInput, current_user: dict = Dep
     
 
 
-# from fastapi import FastAPI
-# from fastapi.responses import RedirectResponse
-
-# app = FastAPI()
-
-# TARGET_URL = "https://github.com/Akshit2807/e_waste_app/releases/latest"
-
-# @app.get("/")
-# def redirect_to_github():
-#     return RedirectResponse(url=TARGET_URL, status_code=302)
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
