@@ -28,7 +28,6 @@ logging.basicConfig(filename="logs.json", level=logging.INFO, format="%(message)
 
 IST = ZoneInfo("Asia/Kolkata")  # India's timezone
 
-
 class LogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = datetime.datetime.now(datetime.UTC)
@@ -48,6 +47,10 @@ class LogMiddleware(BaseHTTPMiddleware):
             "body": request_body
         }
 
+        response_body = b""  # Default empty response body
+        status_code = 500  # Default status code in case of failure
+        headers = {}  # Default empty headers
+
         try:
             response = await call_next(request)
 
@@ -55,24 +58,26 @@ class LogMiddleware(BaseHTTPMiddleware):
             response_body = b"".join([chunk async for chunk in response.body_iterator])
             response_content = response_body.decode("utf-8") if response_body else None
 
-            # Clone response to return
-            response = StreamingResponse(
-                iter([response_body]),
-                status_code=response.status_code,
-                headers=dict(response.headers)
-            )
+            # Preserve response details
+            status_code = response.status_code
+            headers = dict(response.headers)
 
-            request_data["status_code"] = response.status_code
+            request_data["status_code"] = status_code
             request_data["response_body"] = response_content
 
         except Exception as e:
             request_data["error"] = str(e)
-            request_data["status_code"] = 500
             logging.error(json.dumps(request_data))
-            # raise HTTPException(status_code=500, detail="Internal Server Error")
+
+            # Create an error response
+            response_body = json.dumps({"detail": "Internal Server Error"}).encode("utf-8")
+            status_code = 500
+            headers = {"Content-Type": "application/json"}
 
         logging.info(json.dumps(request_data))
-        return response
+
+        # Always return a response
+        return StreamingResponse(iter([response_body]), status_code=status_code, headers=headers)
 
 
 app.add_middleware(LogMiddleware)
