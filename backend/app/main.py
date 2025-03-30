@@ -10,15 +10,8 @@ from starlette.responses import StreamingResponse
 from zoneinfo import ZoneInfo
 
 # Import services and authentication
-from app.auth.jwt_handler import get_current_user
-from app.services.ai_service import (
-    generate_product_description,
-    generate_tags,
-    categorize_ewaste_image,
-    decide_recycle_or_resell,
-    give_ques,
-    websocket_endpoint,
-)
+from app.auth.jwt_handler import get_current_user, decode_access_token
+from app.services.ai_service import *
 
 # Initialize FastAPI
 # app = FastAPI()
@@ -302,13 +295,47 @@ async def gen_ques(data: QuestionGetterInput, current_user: dict = Depends(get_c
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.websocket("/chatlv")
+async def authenticate_websocket(websocket: WebSocket):
+    try:
+        auth_header = websocket.headers.get("Authorization")
+        if not auth_header:
+            await websocket.close(code=4001)
+            raise HTTPException(status_code=4001, detail="Authentication required")
+        token = auth_header.split(" ")[1]
+        payload = decode_access_token(token)
+        logging.info(f"websocket payload:{payload}")
+        return payload
+    except HTTPException as e:
+        await websocket.close(code=4001)
+        raise e
+    except Exception as e:
+        await websocket.close(code=4001)
+        raise HTTPException(status_code=4001, detail="Authentication failed")
+
+
+
+@app.websocket("/chatqa/{product_name}/{product_description}")
+async def chat_endpoint(websocket: WebSocket, product_name: str, product_description: str):
+    """WebSocket endpoint for live chat functionality."""
+    await websocket.accept() #moved accept here.
+    try:
+        payload = await authenticate_websocket(websocket)
+        if bool(payload):
+            await chat_logic(websocket, product_name, product_description, payload)
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        await websocket.close()
+
+
+@app.websocket("/chatlqasmpl")
 async def chat_endpoint(websocket: WebSocket):
     """WebSocket endpoint for live chat functionality."""
     try:
         await websocket_endpoint(websocket)
     except Exception as e:
         await websocket.close()
+
 
 @app.post("/ai/decide", response_model=DecisionResponse)
 async def decide_resell_or_recycle(data: DecisionInput, current_user: dict = Depends(get_current_user)):

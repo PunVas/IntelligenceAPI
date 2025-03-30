@@ -27,6 +27,41 @@ def extract_json(text):
             pass
     return None
 
+
+async def chat_logic(websocket: WebSocket, product_name: str, product_description: str, payload :dict):
+    chat = model.start_chat()
+    # decoded_payload = jwt.decode(token, options={"verify_signature": False}) #verify signature False, as we are only extracting data.
+    name = payload['name']
+
+    try:
+        await websocket.send_text(f"Hello! {name} You've provided information about a {product_name}. I'll ask you questions to determine if it can be resold or should be recycled.")
+
+        current_question = "What is the current working condition of the product? (e.g., fully functional, minor issues, not working)"
+        await websocket.send_text(current_question)
+        response = await websocket.receive_text()
+
+        while True:
+            prompt = f"Product: {product_name}\nDescription: {product_description}\nUser Response: {response}\n\nAsk a follow up question based on the user's response. The question should help determine if the product should be resold or recycled. Only ask a question. If there are no more questions to ask or user is trying to go off topic try taking conversation back to the point exactly 2 times including past warnings with this warning \"Further responses of this nature will result in reporting your activity and terminating the session.\".and if it still happens after past 2 warnings then, say \"Decision time!\""
+            ai_response = chat.send_message(prompt)
+            if "Decision time!" in ai_response.text:
+                prompt_final = f"Product: {product_name}\nDescription: {product_description}\nUser Response: {response}\n\nBased on the user's responses, should the product be resold or recycled? Respond with only the XML tag <meraDecision>recycle</meraDecision> or <meraDecision>resell</meraDecision>. or <meraDecision>IGN</meraDecision>. If user is just talking rubbish or going out of topic respond with <meraDecision>IGN</meraDecision>"
+                final_response = chat.send_message(prompt_final)
+
+                match = re.search(r"<meraDecision>(recycle|resell|IGN)</meraDecision>", final_response.text)
+                if match:
+                    await websocket.send_text(match.group(0))
+                else:
+                    await websocket.send_text("<meraDecision>IGN</meraDecision>")
+
+                break;
+
+            await websocket.send_text(ai_response.text)
+            response = await websocket.receive_text()
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+
 async def websocket_endpoint(websocket: WebSocket): 
     await websocket.accept() 
     chat = model.start_chat() 
@@ -39,6 +74,7 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Error: {e}") 
     finally: 
         await websocket.close() 
+
 
 def generate_product_description(user_input: str) -> str: 
     try: 
@@ -54,6 +90,7 @@ def generate_product_description(user_input: str) -> str:
         return response.text if hasattr(response, "text") else str(response) 
     except Exception as e: 
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}") 
+
 
 def generate_tags(user_input: str) -> List[str]: 
     try: 
