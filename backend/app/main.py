@@ -40,6 +40,9 @@ IST = ZoneInfo("Asia/Kolkata")
 
 class LogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/logs":
+            return await call_next(request)
+            
         start_time = datetime.datetime.now(IST)  # ✅ Always store log time in IST
 
         # Read request body safely
