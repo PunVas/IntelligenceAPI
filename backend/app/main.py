@@ -10,8 +10,8 @@ from starlette.responses import StreamingResponse
 from zoneinfo import ZoneInfo
 
 # Import services and authentication
-from app.auth.jwt_handler import get_current_user
-from app.services.ai_service import (
+from auth.jwt_handler import get_current_user
+from services.ai_service import (
     generate_product_description,
     generate_tags,
     categorize_ewaste_image,
@@ -21,15 +21,15 @@ from app.services.ai_service import (
 )
 
 # Initialize FastAPI
-app = FastAPI()
+# app = FastAPI()
 
 # Set up logging
-logging.basicConfig(filename="logs.json", level=logging.INFO, format="%(message)s")
+# logging.basicConfig(filename="logs.json", level=logging.INFO, format="%(message)s")
 
-IST = ZoneInfo("Asia/Kolkata")  # India's timezone
+# IST = ZoneInfo("Asia/Kolkata")  # India's timezone
 
 # Initialize FastAPI
-app = FastAPI()
+# app = FastAPI()
 
 # Configure logging
 LOG_FILE = "logs.json"
@@ -38,14 +38,40 @@ logging.basicConfig(filename=LOG_FILE, level=logging.INFO, format="%(message)s")
 # Timezone configuration
 IST = ZoneInfo("Asia/Kolkata")
 
+import asyncio
+import json
+import datetime
+import logging
+from logging.handlers import RotatingFileHandler
+from fastapi import FastAPI, HTTPException, Request, Query
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import StreamingResponse
+from zoneinfo import ZoneInfo
+
+# Timezone configuration
+# IST = ZoneInfo("Asia/Kolkata")
+
+# Constants
+# LOG_FILE = "logs.json"
+LOG_RETENTION_HOURS = 5
+LOG_PRUNE_INTERVAL = 300  # Run pruning every 5 minutes
+
+# Initialize FastAPI
+app = FastAPI()
+
+# Configure rotating log handler to limit size and number of backup files
+log_handler = RotatingFileHandler(LOG_FILE, maxBytes=100*1024*1024 , backupCount=3)
+logging.basicConfig(handlers=[log_handler], level=logging.INFO, format="%(message)s")
+
+
 class LogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        """ Middleware to log requests and responses """
         if request.url.path == "/logs":
             return await call_next(request)
-            
-        start_time = datetime.datetime.now(IST)  # ✅ Always store log time in IST
+        
+        start_time = datetime.datetime.now(IST)  
 
-        # Read request body safely
         try:
             body_bytes = await request.body()
             request_body = body_bytes.decode("utf-8") if body_bytes else None
@@ -53,7 +79,7 @@ class LogMiddleware(BaseHTTPMiddleware):
             request_body = f"Error reading body: {str(e)}"
 
         request_data = {
-            "time": start_time.isoformat(),  # ✅ Log in IST
+            "time": start_time.isoformat(),
             "method": request.method,
             "url": str(request.url),
             "headers": dict(request.headers),
@@ -63,11 +89,9 @@ class LogMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
 
-            # Read response body correctly
             response_body = [chunk async for chunk in response.body_iterator]
             response_content = b"".join(response_body).decode("utf-8") if response_body else None
 
-            # Clone response for returning
             new_response = StreamingResponse(
                 iter(response_body), status_code=response.status_code, headers=dict(response.headers)
             )
@@ -75,6 +99,7 @@ class LogMiddleware(BaseHTTPMiddleware):
             request_data["status_code"] = response.status_code
             request_data["response_body"] = response_content
 
+            # Append log without pruning in every request
             logging.info(json.dumps(request_data))
 
             return new_response
@@ -85,7 +110,47 @@ class LogMiddleware(BaseHTTPMiddleware):
             logging.error(json.dumps(request_data))
             raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 app.add_middleware(LogMiddleware)
+
+
+async def prune_old_logs():
+    """ Periodically remove logs older than 5 hours """
+    while True:
+        try:
+            now = datetime.datetime.now(IST)
+            cutoff_time = now - datetime.timedelta(hours=LOG_RETENTION_HOURS)
+            valid_logs = []
+
+            # Read and filter logs
+            with open(LOG_FILE, "r", encoding="utf-8") as file:
+                for line in file:
+                    try:
+                        log_entry = json.loads(line.strip())
+                        log_time = datetime.datetime.fromisoformat(log_entry["time"]).replace(tzinfo=IST)
+                        if log_time >= cutoff_time:
+                            valid_logs.append(log_entry)
+                    except json.JSONDecodeError:
+                        continue  # Skip corrupt entries
+
+            # Rewrite filtered logs
+            with open(LOG_FILE, "w", encoding="utf-8") as file:
+                for log in valid_logs:
+                    file.write(json.dumps(log) + "\n")
+
+        except FileNotFoundError:
+            pass  # No logs to prune if file doesn't exist
+        except Exception as e:
+            logging.error(f"Error pruning logs: {e}")
+
+        await asyncio.sleep(LOG_PRUNE_INTERVAL)  # Run every 5 minutes
+
+
+@app.on_event("startup")
+async def startup_event():
+    """ Start log pruning in the background on server start """
+    asyncio.create_task(prune_old_logs())
+
 
 @app.get("/logs")
 async def get_logs(
@@ -93,35 +158,27 @@ async def get_logs(
     end_time: str = Query(..., description="End time in ISO format (YYYY-MM-DDTHH:MM:SS)")
 ):
     try:
-        # Convert input timestamps to datetime objects
         start_dt = datetime.datetime.fromisoformat(start_time).replace(tzinfo=IST)
         end_dt = datetime.datetime.fromisoformat(end_time).replace(tzinfo=IST)
 
-        # Read log file
         logs = []
         with open(LOG_FILE, "r", encoding="utf-8") as file:
             for line in file:
                 try:
-                    log_entry = json.loads(line.strip())  # Ensure logs are parsed correctly
+                    log_entry = json.loads(line.strip())
                     log_time = datetime.datetime.fromisoformat(log_entry["time"]).replace(tzinfo=IST)
-                    
-                    # Filter logs within the specified time range
                     if start_dt <= log_time <= end_dt:
                         logs.append(log_entry)
                 except json.JSONDecodeError:
-                    continue  # Skip invalid log entries
+                    continue  # Skip invalid entries
 
-        return {
-            "message": "Logs fetched successfully",
-            "start_time": start_dt.strftime("%Y-%m-%d %H:%M:%S %Z"),
-            "end_time": end_dt.strftime("%Y-%m-%d %H:%M:%S %Z"),
-            "logs": logs
-        }
+        return {"message": "Logs fetched successfully", "logs": logs}
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
 
 
 
@@ -268,5 +325,4 @@ async def decide_resell_or_recycle(data: DecisionInput, current_user: dict = Dep
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-
 
