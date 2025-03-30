@@ -86,22 +86,27 @@ app.add_middleware(LogMiddleware)
 
 @app.get("/logs")
 async def get_logs(
-    start_time: str = Query(..., description="Start time in IST (YYYY-MM-DDTHH:MM:SS)"),
-    end_time: str = Query(..., description="End time in IST (YYYY-MM-DDTHH:MM:SS)")
+    start_time: str = Query(..., description="Start time in ISO format (YYYY-MM-DDTHH:MM:SS)"),
+    end_time: str = Query(..., description="End time in ISO format (YYYY-MM-DDTHH:MM:SS)")
 ):
     try:
-        # ✅ Accept timestamps in IST directly (assume input is already IST)
+        # Convert input timestamps to datetime objects
         start_dt = datetime.datetime.fromisoformat(start_time).replace(tzinfo=IST)
         end_dt = datetime.datetime.fromisoformat(end_time).replace(tzinfo=IST)
 
+        # Read log file
         logs = []
-        with open(LOG_FILE, "r") as f:
-            for line in f:
-                log_entry = json.loads(line)
-                log_time = datetime.datetime.fromisoformat(log_entry["time"]).replace(tzinfo=IST)  # ✅ Ensure log time is treated as IST
-
-                if start_dt <= log_time <= end_dt:
-                    logs.append(log_entry)
+        with open(LOG_FILE, "r", encoding="utf-8") as file:
+            for line in file:
+                try:
+                    log_entry = json.loads(line.strip())  # Ensure logs are parsed correctly
+                    log_time = datetime.datetime.fromisoformat(log_entry["time"]).replace(tzinfo=IST)
+                    
+                    # Filter logs within the specified time range
+                    if start_dt <= log_time <= end_dt:
+                        logs.append(log_entry)
+                except json.JSONDecodeError:
+                    continue  # Skip invalid log entries
 
         return {
             "message": "Logs fetched successfully",
@@ -109,12 +114,11 @@ async def get_logs(
             "end_time": end_dt.strftime("%Y-%m-%d %H:%M:%S %Z"),
             "logs": logs
         }
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-
-
 
 
 
