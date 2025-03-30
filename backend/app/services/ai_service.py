@@ -123,11 +123,18 @@ def categorize_ewaste_image(image_bytes: bytes) -> dict:
                 if isinstance(category_data, dict) and "category" in category_data:
                     return category_data
             except json.JSONDecodeError:
-                pass
+                try:
+                    category_data = json.loads(response.text.strip().strip("```").strip("json").strip())
+                    if isinstance(category_data, dict) and "category" in category_data:
+                        return category_data
+                    
+                except json.JSONDecodeError:
+                    pass
         
         return {"category": "IGN", "desc": "IGN", "generic_tag": "IGN", "search_tags": ["IGN"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
+
 
 
 def give_ques(product_name: str) -> dict:
