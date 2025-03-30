@@ -10,8 +10,8 @@ from starlette.responses import StreamingResponse
 from zoneinfo import ZoneInfo
 
 # Import services and authentication
-from auth.jwt_handler import get_current_user
-from services.ai_service import (
+from app.auth.jwt_handler import get_current_user
+from app.services.ai_service import (
     generate_product_description,
     generate_tags,
     categorize_ewaste_image,
