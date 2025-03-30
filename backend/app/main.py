@@ -23,16 +23,15 @@ from app.services.ai_service import (
 # Initialize FastAPI
 app = FastAPI()
 
-# Configure logging
+# Set up logging
 logging.basicConfig(filename="logs.json", level=logging.INFO, format="%(message)s")
 
-# Timezone configuration
-IST = ZoneInfo("Asia/Kolkata")
+IST = ZoneInfo("Asia/Kolkata")  # India's timezone
 
 
 class LogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        start_time = datetime.datetime.now(datetime.UTC)  # ✅ Correct UTC time
+        start_time = datetime.datetime.now(datetime.UTC)
 
         # Read request body safely
         try:
@@ -45,23 +44,27 @@ class LogMiddleware(BaseHTTPMiddleware):
             "time": start_time.isoformat(),
             "method": request.method,
             "url": str(request.url),
-            "headers": dict(request.headers),
-            "body": request_body,
+            "headers": {k: v for k, v in request.headers.items()},
+            "body": request_body
         }
 
         try:
-            # Capture response
             response = await call_next(request)
-            response_body = [chunk async for chunk in response.body_iterator]
-            response_content = b"".join(response_body).decode("utf-8") if response_body else None
 
-            # Clone response for returning
-            new_response = StreamingResponse(
-                iter(response_body), status_code=response.status_code, headers=dict(response.headers)
+            # Capture response body
+            response_body = b"".join([chunk async for chunk in response.body_iterator])
+            response_content = response_body.decode("utf-8") if response_body else None
+
+            # Clone response to return
+            response = StreamingResponse(
+                iter([response_body]),
+                status_code=response.status_code,
+                headers=dict(response.headers)
             )
 
             request_data["status_code"] = response.status_code
             request_data["response_body"] = response_content
+
         except Exception as e:
             request_data["error"] = str(e)
             request_data["status_code"] = 500
@@ -69,7 +72,7 @@ class LogMiddleware(BaseHTTPMiddleware):
             raise HTTPException(status_code=500, detail="Internal Server Error")
 
         logging.info(json.dumps(request_data))
-        return new_response
+        return response
 
 
 app.add_middleware(LogMiddleware)
@@ -78,29 +81,22 @@ app.add_middleware(LogMiddleware)
 @app.get("/logs")
 async def get_logs(
     start_time: str = Query(..., description="Start time in YYYY-MM-DDTHH:MM:SS format (IST)"),
-    end_time: str = Query(..., description="End time in YYYY-MM-DDTHH:MM:SS format (IST)"),
+    end_time: str = Query(..., description="End time in YYYY-MM-DDTHH:MM:SS format (IST)")
 ):
-    """
-    Fetch logs between a given time range (Input time in IST).
-    """
+    """Fetch logs between a given time range (Input time in IST)."""
     try:
-        # Convert IST to UTC for querying logs
         start_utc = datetime.datetime.fromisoformat(start_time).replace(tzinfo=IST).astimezone(datetime.UTC)
         end_utc = datetime.datetime.fromisoformat(end_time).replace(tzinfo=IST).astimezone(datetime.UTC)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DDTHH:MM:SS")
 
     logs = []
-    try:
-        with open("logs.json", "r", encoding="utf-8") as log_file:
-            for line in log_file:
-                log_entry = json.loads(line)
-                log_time = datetime.datetime.fromisoformat(log_entry["time"])
-
-                if start_utc <= log_time <= end_utc:
-                    logs.append(log_entry)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Log file not found")
+    with open("logs.json", "r") as log_file:
+        for line in log_file:
+            log_entry = json.loads(line)
+            log_time = datetime.datetime.fromisoformat(log_entry["time"])
+            if start_utc <= log_time <= end_utc:
+                logs.append(log_entry)
 
     return {"logs": logs}
 
