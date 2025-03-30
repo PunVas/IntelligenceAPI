@@ -28,9 +28,19 @@ logging.basicConfig(filename="logs.json", level=logging.INFO, format="%(message)
 
 IST = ZoneInfo("Asia/Kolkata")  # India's timezone
 
+# Initialize FastAPI
+app = FastAPI()
+
+# Configure logging
+LOG_FILE = "logs.json"
+logging.basicConfig(filename=LOG_FILE, level=logging.INFO, format="%(message)s")
+
+# Timezone configuration
+IST = ZoneInfo("Asia/Kolkata")
+
 class LogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        start_time = datetime.datetime.now(datetime.UTC)
+        start_time = datetime.datetime.now(IST)  # ✅ Always store log time in IST
 
         # Read request body safely
         try:
@@ -40,70 +50,71 @@ class LogMiddleware(BaseHTTPMiddleware):
             request_body = f"Error reading body: {str(e)}"
 
         request_data = {
-            "time": start_time.isoformat(),
+            "time": start_time.isoformat(),  # ✅ Log in IST
             "method": request.method,
             "url": str(request.url),
-            "headers": {k: v for k, v in request.headers.items()},
-            "body": request_body
+            "headers": dict(request.headers),
+            "body": request_body,
         }
-
-        response_body = b""  # Default empty response body
-        status_code = 500  # Default status code in case of failure
-        headers = {}  # Default empty headers
 
         try:
             response = await call_next(request)
 
-            # Capture response body
-            response_body = b"".join([chunk async for chunk in response.body_iterator])
-            response_content = response_body.decode("utf-8") if response_body else None
+            # Read response body correctly
+            response_body = [chunk async for chunk in response.body_iterator]
+            response_content = b"".join(response_body).decode("utf-8") if response_body else None
 
-            # Preserve response details
-            status_code = response.status_code
-            headers = dict(response.headers)
+            # Clone response for returning
+            new_response = StreamingResponse(
+                iter(response_body), status_code=response.status_code, headers=dict(response.headers)
+            )
 
-            request_data["status_code"] = status_code
+            request_data["status_code"] = response.status_code
             request_data["response_body"] = response_content
+
+            logging.info(json.dumps(request_data))
+
+            return new_response
 
         except Exception as e:
             request_data["error"] = str(e)
+            request_data["status_code"] = 500
             logging.error(json.dumps(request_data))
-
-            # Create an error response
-            response_body = json.dumps({"detail": "Internal Server Error"}).encode("utf-8")
-            status_code = 500
-            headers = {"Content-Type": "application/json"}
-
-        logging.info(json.dumps(request_data))
-
-        # Always return a response
-        return StreamingResponse(iter([response_body]), status_code=status_code, headers=headers)
-
+            raise HTTPException(status_code=500, detail="Internal Server Error")
 
 app.add_middleware(LogMiddleware)
 
-
 @app.get("/logs")
 async def get_logs(
-    start_time: str = Query(..., description="Start time in YYYY-MM-DDTHH:MM:SS format (IST)"),
-    end_time: str = Query(..., description="End time in YYYY-MM-DDTHH:MM:SS format (IST)")
+    start_time: str = Query(..., description="Start time in IST (YYYY-MM-DDTHH:MM:SS)"),
+    end_time: str = Query(..., description="End time in IST (YYYY-MM-DDTHH:MM:SS)")
 ):
-    """Fetch logs between a given time range (Input time in IST)."""
     try:
-        start_utc = datetime.datetime.fromisoformat(start_time).replace(tzinfo=IST).astimezone(datetime.UTC)
-        end_utc = datetime.datetime.fromisoformat(end_time).replace(tzinfo=IST).astimezone(datetime.UTC)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DDTHH:MM:SS")
+        # ✅ Accept timestamps in IST directly (assume input is already IST)
+        start_dt = datetime.datetime.fromisoformat(start_time).replace(tzinfo=IST)
+        end_dt = datetime.datetime.fromisoformat(end_time).replace(tzinfo=IST)
 
-    logs = []
-    with open("logs.json", "r") as log_file:
-        for line in log_file:
-            log_entry = json.loads(line)
-            log_time = datetime.datetime.fromisoformat(log_entry["time"])
-            if start_utc <= log_time <= end_utc:
-                logs.append(log_entry)
+        logs = []
+        with open(LOG_FILE, "r") as f:
+            for line in f:
+                log_entry = json.loads(line)
+                log_time = datetime.datetime.fromisoformat(log_entry["time"]).replace(tzinfo=IST)  # ✅ Ensure log time is treated as IST
 
-    return {"logs": logs}
+                if start_dt <= log_time <= end_dt:
+                    logs.append(log_entry)
+
+        return {
+            "message": "Logs fetched successfully",
+            "start_time": start_dt.strftime("%Y-%m-%d %H:%M:%S %Z"),
+            "end_time": end_dt.strftime("%Y-%m-%d %H:%M:%S %Z"),
+            "logs": logs
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+
 
 
 
