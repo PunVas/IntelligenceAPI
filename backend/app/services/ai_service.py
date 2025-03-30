@@ -63,37 +63,72 @@ def generate_tags(user_input: str) -> List[str]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
 
+# def categorize_ewaste_image(image_bytes: bytes) -> dict:
+#     try:
+#         image = Image.open(io.BytesIO(image_bytes))
+
+#         system_prompt = (
+#     "You are an AI-powered e-waste image classifier, product describer, and search tags generator. "
+#     "Choose one generic tag **very very strictly** from this predefined list: ['Mobile Devices', 'Computers and Laptops', 'Computer Accessories','Networking Equipment', 'Audio and Video Devices', 'Storage Devices', 'Batteries and Power Supplies','Home Appliances', 'Gaming and Entertainment', 'Office Electronics', 'Industrial and Medical Equipment', 'Car Electronics']. "
+#     "Strictly return a **raw python dictionary ** in this format (without any markdown or extra formatting): "
+#     "{\"category\": \"Laptop Battery\", \"desc\": \"<product description here>\", \"search_tags\": [\"tag1\", \"tag2\", \"tag3\"], \"generic_tag\": \"tag\"}. "
+#     "Format the product description using '\\n' for new lines, like this and it must be like 100 words long at max: \"desc\": \"This laptop is\\n1) 4 years old\\n2) Has i7 112500H processor and RTX 3050Ti\\n3) Has minor scratches\". "
+#     "just describe the electronic product in the image, don't describe any background things."
+#     "keep product name short don't make it very descriptive"
+#     "DO NOT add any markdown formatting (such as ```json ... ```) or any extra text. "
+#     "ONLY return the text. If the image is not an electronic item, or containes more than 1 electronic item or the image is unfit for customer to take decision or if it is blurry or unclear, return this exact dictionary: {\"category\": \"IGN\", \"desc\": \"IGN\", \"generic_tag\": \"IGN\",\"search_tags\":[\"IGN\"]}."
+#     "This is a sample output that you have to give out : {\"category\":\"Laptop\",\"desc\":\"This is a gaming laptop,\nwith a sleek design and\nbacklit keyboard.\",\"search_tags\":[\"gaming laptop\",\"laptop\",\"computer\",\"asus tuf\"],\"generic_tag\":\"<suitable tag from the predefined list>\"}"
+
+# )
+
+#         response = client.models.generate_content(model=USE_MODEL, contents=[system_prompt, image])
+
+#         if hasattr(response, "text") and response.text:
+#             try:
+#                 category_data = json.loads(str(response.text.strip("```json").strip("```").strip().replace("\n","\\n")))
+#                 if "category" in category_data:
+#                     return category_data
+#             except json.JSONDecodeError:
+#                 return response.text.strip()
+
+#         return "Unknown"
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
+
+
 def categorize_ewaste_image(image_bytes: bytes) -> dict:
     try:
         image = Image.open(io.BytesIO(image_bytes))
 
         system_prompt = (
-    "You are an AI-powered e-waste image classifier, product describer, and search tags generator. "
-    "Choose one generic tag **very very strictly** from this predefined list: ['Mobile Devices', 'Computers and Laptops', 'Computer Accessories','Networking Equipment', 'Audio and Video Devices', 'Storage Devices', 'Batteries and Power Supplies','Home Appliances', 'Gaming and Entertainment', 'Office Electronics', 'Industrial and Medical Equipment', 'Car Electronics']. "
-    "Strictly return a **raw python dictionary ** in this format (without any markdown or extra formatting): "
-    "{\"category\": \"Laptop Battery\", \"desc\": \"<product description here>\", \"search_tags\": [\"tag1\", \"tag2\", \"tag3\"], \"generic_tag\": \"tag\"}. "
-    "Format the product description using '\\n' for new lines, like this and it must be like 100 words long at max: \"desc\": \"This laptop is\\n1) 4 years old\\n2) Has i7 112500H processor and RTX 3050Ti\\n3) Has minor scratches\". "
-    "just describe the electronic product in the image, don't describe any background things."
-    "keep product name short don't make it very descriptive"
-    "DO NOT add any markdown formatting (such as ```json ... ```) or any extra text. "
-    "ONLY return the text. If the image is not an electronic item, or containes more than 1 electronic item or the image is unfit for customer to take decision or if it is blurry or unclear, return this exact dictionary: {\"category\": \"IGN\", \"desc\": \"IGN\", \"generic_tag\": \"IGN\",\"search_tags\":[\"IGN\"]}."
-    "This is a sample output that you have to give out : {\"category\":\"Laptop\",\"desc\":\"This is a gaming laptop,\nwith a sleek design and\nbacklit keyboard.\",\"search_tags\":[\"gaming laptop\",\"laptop\",\"computer\",\"asus tuf\"],\"generic_tag\":\"<suitable tag from the predefined list>\"}"
+            "You are an AI-powered e-waste image classifier, product describer, and search tags generator. "
+            "Choose one generic tag **strictly** from this predefined list: ['Mobile Devices', 'Computers and Laptops', "
+            "'Computer Accessories','Networking Equipment', 'Audio and Video Devices', 'Storage Devices', "
+            "'Batteries and Power Supplies','Home Appliances', 'Gaming and Entertainment', 'Office Electronics', "
+            "'Industrial and Medical Equipment', 'Car Electronics']. "
+            "Strictly return a **raw python dictionary ** in this format (without any markdown or extra formatting): "
+            "{\"category\": \"Laptop Battery\", \"desc\": \"<product description here>\", "
+            "\"search_tags\": [\"tag1\", \"tag2\", \"tag3\"], \"generic_tag\": \"tag\"}. "
+            "DO NOT add any markdown formatting (such as ```json ... ```) or any extra text. "
+            "ONLY return the text. If the image is not an electronic item, or contains more than 1 electronic item "
+            "or the image is unfit for a customer to take a decision on or if it is blurry or unclear, return this "
+            "exact dictionary: {\"category\": \"IGN\", \"desc\": \"IGN\", \"generic_tag\": \"IGN\",\"search_tags\":[\"IGN\"]}."
+        )
 
-)
-
-        response = client.models.generate_content(model=USE_MODEL, contents=[system_prompt, image])
+        response = client.models.generate_content(model="gemini-2.0-flash", contents=[system_prompt, image])
 
         if hasattr(response, "text") and response.text:
             try:
-                category_data = json.loads(str(response.text.strip("```json").strip("```").strip().replace("\n","\\n")))
-                if "category" in category_data:
+                category_data = json.loads(response.text.strip())
+                if isinstance(category_data, dict) and "category" in category_data:
                     return category_data
             except json.JSONDecodeError:
-                return response.text.strip()
-
-        return "Unknown"
+                pass
+        
+        return {"category": "IGN", "desc": "IGN", "generic_tag": "IGN", "search_tags": ["IGN"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
+
 
 def give_ques(product_name: str) -> dict:
     try:

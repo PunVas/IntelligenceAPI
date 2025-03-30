@@ -192,6 +192,21 @@ async def generate_tags_endpoint(data: BlogDataInput, current_user: dict = Depen
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# @app.post("/ai/categorize_ewaste_base64", response_model=ImageDataResponse)
+# async def categorize_e_waste_base64(image_data: ImageDataInput, current_user: dict = Depends(get_current_user)):
+#     """
+#     Categorize an e-waste item based on an image.
+#     - **image_base64**: Base64-encoded image.
+#     - **Returns**: A dictionary with title, description, search tags, and generic tag.
+#     """
+#     try:
+#         image_bytes = base64.b64decode(image_data.image_base64)
+#         c=categorize_ewaste_image(image_bytes)
+#         return ImageDataResponse(title=c['category'],desc=c['desc'],search_tags=c['search_tags'],category=c['category'])
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/ai/categorize_ewaste_base64", response_model=ImageDataResponse)
 async def categorize_e_waste_base64(image_data: ImageDataInput, current_user: dict = Depends(get_current_user)):
     """
@@ -201,8 +216,17 @@ async def categorize_e_waste_base64(image_data: ImageDataInput, current_user: di
     """
     try:
         image_bytes = base64.b64decode(image_data.image_base64)
-        c=categorize_ewaste_image(image_bytes)
-        return ImageDataResponse(title=c['category'],desc=c['desc'],search_tags=c['search_tags'],category=c['category'])
+        c = categorize_ewaste_image(image_bytes)
+
+        if not isinstance(c, dict):
+            raise HTTPException(status_code=500, detail="Invalid response from AI model")
+
+        return ImageDataResponse(
+            title=c.get('category', 'Unknown'),
+            desc=c.get('desc', 'No description'),
+            search_tags=c.get('search_tags', []),
+            category=c.get('category', 'Unknown')
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
