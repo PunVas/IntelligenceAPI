@@ -101,11 +101,9 @@ def categorize_ewaste_image(image_bytes: bytes) -> dict:
             "or the image is unfit for a customer to take a decision on or if it is blurry or unclear, return this " 
             "exact dictionary: {\"category\": \"IGN\", \"desc\": \"IGN\", \"generic_tag\": \"IGN\",\"search_tags\":[\"IGN\"]}." 
         ) 
-
         response = client.models.generate_content(model="gemini-2.0-flash", contents=[system_prompt, image]) 
         response_text = response.text if hasattr(response, "text") else str(response)
         
-        # Extract JSON using regex pattern
         category_data = extract_json(response_text)
         if category_data and isinstance(category_data, dict) and "category" in category_data:
             return category_data
@@ -131,16 +129,13 @@ def give_ques(product_name: str) -> dict:
 
         response_text = response.text if hasattr(response, "text") else str(response) 
         
-        # Extract JSON using regex pattern
         json_data = extract_json(response_text)
         if json_data:
             return json_data
             
-        # Try to parse as JSON directly
         try:
             return json.loads(response_text)
         except json.JSONDecodeError:
-            # Fallback to previous method if JSON extraction fails
             if response_text == "IGN":
                 return {"questions": ["IGN"]}
                 
@@ -172,6 +167,7 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
             model="gemini-2.0-flash", contents=[system_prompt, user_input] 
         ) 
         response_text = response.text if hasattr(response, "text") else str(response) 
+        response_text=response_text.strip()
 
         if response_text == "recycle": 
             guide_prompt = ( 
@@ -196,29 +192,9 @@ def decide_recycle_or_resell(product_name: str, product_desc: str, user_answers:
         else: 
             return {"r": "IGN", "g": {"initials":"IGN","pointers":{"headings":["IGN"],"description":["IGN"]}}} 
 
-        guide_response = client.models.generate_content( 
-            model="gemini-2.0-flash", contents=[guide_prompt, user_input] 
-        ) 
-        guide_text = guide_response.text if hasattr(guide_response, "text") else str(guide_response) 
-        
-        # Extract JSON using regex pattern
-        guide_json = extract_json(guide_text)
-        if guide_json:
-            guide_json['pointers'] = {
-                "headings": list(guide_json['pointers'].keys()),
-                "description": list(guide_json['pointers'].values())
-            }
-            return {"r": response_text, "g": guide_json}
-            
-        try:
-            guide_json = json.loads(guide_text)
-            guide_json['pointers'] = {
-                "headings": list(guide_json['pointers'].keys()),
-                "description": list(guide_json['pointers'].values())
-            }
-            return {"r": response_text, "g": guide_json}
-        except json.JSONDecodeError:
-            return {"r": response_text, "g": {"initials":"Error parsing response","pointers":{"headings":["Error"],"description":["Unable to parse guidance"]}}}
-
-    except Exception as e: 
+        guide_response =client.models.generate_content(model="gemini-2.0-flash", contents=[guide_prompt, user_input])
+        guide_json=extract_json(guide_response.text)
+        guide_json['pointers']={"headings":list(guide_json['pointers'].keys()),"description":list(guide_json['pointers'].values())}
+        return {"r": response_text, "g": guide_json}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"Google API error: {str(e)}")
