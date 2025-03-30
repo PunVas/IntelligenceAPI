@@ -69,7 +69,7 @@ class LogMiddleware(BaseHTTPMiddleware):
             request_data["error"] = str(e)
             request_data["status_code"] = 500
             logging.error(json.dumps(request_data))
-            raise HTTPException(status_code=500, detail="Internal Server Error")
+            # raise HTTPException(status_code=500, detail="Internal Server Error")
 
         logging.info(json.dumps(request_data))
         return response
