@@ -45,9 +45,8 @@ async def chat_logic(websocket: WebSocket, product_name: str, product_descriptio
                     3. **Irrelevance Handling:** If the user provides irrelevant information, gently guide them back to the topic with a  warning(max 2 warnings then Decision Time!). Do not engage in off-topic discussions.
                     4. **Strict Topic Control:** If the user persists in providing irrelevant responses after 2 warnings ("Further responses of this nature will result in reporting your activity and terminating the session."), immediately state "Decision time!" and proceed to the final decision.
                     5. **Short Answers:** Acknowledge and process short answers like "yes" or "no" as valid responses.
-                    6. **Question Repetition:** don't repeat questions.
                     7. Ultimately you have to end the chat by sending the token below but remeber you have to ask user relevant ques so that a correct decison can be made.
-                    8. **Decision Time:** After gathering sufficient information or if the user is consistently off-topic or giving the some irrevant responsonse to the same ques again and again , say "Decision time!" and provide your recommendation in the following format: <meraDecision>recycle</meraDecision> (if you think prod must be recycled), <meraDecision>resell</meraDecision>(if you think prod must be resold), or <meraDecision>IGN</meraDecision> (if the information is insufficient or user is consistently off-topic or giving the some irrevant responsonse to the same ques again and again).
+                    8. **Decision Time:** After gathering sufficient information or if the user is consistently off-topic or giving some irrevant responsonse to the same ques again and again , say "Decision time!" and provide your recommendation in the following format: <meraDecision>recycle</meraDecision> (if you think prod must be recycled from overall conversation), <meraDecision>resell</meraDecision>(if you think prod must be resold from overall conversation), or <meraDecision>IGN</meraDecision> (if you are ending conversation after giving 2 warnings becuase of irrelevance of answers).
                     """
                 ],
             }
@@ -79,12 +78,20 @@ async def chat_logic(websocket: WebSocket, product_name: str, product_descriptio
                     await websocket.send_text("<meraDecision>IGN</meraDecision>")
                 break
 
+            # Check for repetitive questions and increment warning counter
+            # if current_question == ai_response.text:
+            #     warning_count += 1
+            #     if warning_count >= 2:
+            #         await websocket.send_text("Decision time!")
+            #         continue #skip the next question and go to decision time.
+
+            #     await websocket.send_text("Further responses of this nature will result in reporting your activity and terminating the session.")
+            #     response = await websocket.receive_text()
+            #     continue #skip the next question and go to warning.
+
             await websocket.send_text(ai_response.text)
             current_question = ai_response.text #update current question
             response = await websocket.receive_text()
-
-    except Exception as e:
-        print(f"Error: {e}")
 
     except Exception as e:
         print(f"Error: {e}")
