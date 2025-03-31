@@ -28,21 +28,46 @@ def extract_json(text):
     return None
 
 
-async def chat_logic(websocket: WebSocket, product_name: str, product_description: str, payload :dict):
-    chat = model.start_chat()
-    # decoded_payload = jwt.decode(token, options={"verify_signature": False}) #verify signature False, as we are only extracting data.
+async def chat_logic(websocket: WebSocket, product_name: str, product_description: str, payload: dict):
+    chat = model.start_chat(
+        history=[
+            {
+                "role": "user",
+                "parts": [
+                    """
+                    You are a helpful assistant designed to determine if a product should be resold or recycled. 
+                    Your goal is to gather the necessary information efficiently and accurately.
+
+                    **Conversation Guidelines:**
+
+                    1. **Relevant Questions:** Ask concise and relevant questions about the product's condition and usability. Focus on key factors that influence resale or recycling (e.g., functionality, damage, age, features).
+                    2. **Limit Questions:** Aim to resolve the issue within a maximum of 7 questions. Avoid unnecessary or repetitive inquiries.
+                    3. **Irrelevance Handling:** If the user provides irrelevant information, gently guide them back to the topic with a  warning(max 2 warnings then Decision Time!). Do not engage in off-topic discussions.
+                    4. **Strict Topic Control:** If the user persists in providing irrelevant responses after 2 warnings ("Further responses of this nature will result in reporting your activity and terminating the session."), immediately state "Decision time!" and proceed to the final decision.
+                    5. **Short Answers:** Acknowledge and process short answers like "yes" or "no" as valid responses.
+                    6. **Question Repetition:** don't repeat questions.
+                    7. Ultimately you have to end the chat by sending the token below but remeber you have to ask user relevant ques so that a correct decison can be made.
+                    8. **Decision Time:** After gathering sufficient information or if the user is consistently off-topic or giving the some irrevant responsonse to the same ques again and again , say "Decision time!" and provide your recommendation in the following format: <meraDecision>recycle</meraDecision> (if you think prod must be recycled), <meraDecision>resell</meraDecision>(if you think prod must be resold), or <meraDecision>IGN</meraDecision> (if the information is insufficient or user is consistently off-topic or giving the some irrevant responsonse to the same ques again and again).
+                    """
+                ],
+            }
+        ]
+    )
     name = payload['name']
+    # warning_count = 0  
 
     try:
-        await websocket.send_text(f"Hello! {name} You've provided information about a {product_name}. I'll ask you questions to determine if it can be resold or should be recycled.")
+        await websocket.send_text(f"Hello! {name} You've provided information about a {product_name}.")
 
-        current_question = "What is the current working condition of the product? (e.g., fully functional, minor issues, not working)"
+        current_question = "I'll ask you questions to determine if it can be resold or should be recycled."
         await websocket.send_text(current_question)
         response = await websocket.receive_text()
 
         while True:
-            prompt = f"Product: {product_name}\nDescription: {product_description}\nUser Response: {response}\n\nAsk a follow up question based on the user's response. The question should help determine if the product should be resold or recycled. Only ask a question. If there are no more questions to ask or user is trying to go off topic try taking conversation back to the point exactly 2 times including past warnings with this warning \"Further responses of this nature will result in reporting your activity and terminating the session.\".and if it still happens after past 2 warnings then, say \"Decision time!\""
+            prompt = f"Product: {product_name}\nDescription: {product_description}\nUser Response: {response}\n\nAsk a follow up question based on the user's response."
+
             ai_response = chat.send_message(prompt)
+
             if "Decision time!" in ai_response.text:
                 prompt_final = f"Product: {product_name}\nDescription: {product_description}\nUser Response: {response}\n\nBased on the user's responses, should the product be resold or recycled? Respond with only the XML tag <meraDecision>recycle</meraDecision> or <meraDecision>resell</meraDecision>. or <meraDecision>IGN</meraDecision>. If user is just talking rubbish or going out of topic respond with <meraDecision>IGN</meraDecision>"
                 final_response = chat.send_message(prompt_final)
@@ -52,11 +77,14 @@ async def chat_logic(websocket: WebSocket, product_name: str, product_descriptio
                     await websocket.send_text(match.group(0))
                 else:
                     await websocket.send_text("<meraDecision>IGN</meraDecision>")
-
-                break;
+                break
 
             await websocket.send_text(ai_response.text)
+            current_question = ai_response.text #update current question
             response = await websocket.receive_text()
+
+    except Exception as e:
+        print(f"Error: {e}")
 
     except Exception as e:
         print(f"Error: {e}")

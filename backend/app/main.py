@@ -10,8 +10,8 @@ from starlette.responses import StreamingResponse
 from zoneinfo import ZoneInfo
 
 # Import services and authentication
-from app.auth.jwt_handler import get_current_user, decode_access_token
-from app.services.ai_service import *
+from auth.jwt_handler import get_current_user, decode_access_token
+from services.ai_service import *
 
 # Initialize FastAPI
 # app = FastAPI()
@@ -314,21 +314,42 @@ async def authenticate_websocket(websocket: WebSocket):
 
 
 
+# @app.websocket("/chatqa/{product_name}/{product_description}")
+# async def chat_endpoint(websocket: WebSocket, product_name: str, product_description: str):
+#     """WebSocket endpoint for live chat functionality."""
+#     await websocket.accept() #moved accept here.
+#     try:
+#         payload = await authenticate_websocket(websocket)
+#         if bool(payload):
+#             await chat_logic(websocket, product_name, product_description, payload)
+#     except Exception as e:
+#         print(f"Error: {e}")
+#     finally:
+#         await websocket.close()
+
+
+import asyncio
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
+from fastapi import FastAPI, WebSocket
+
 @app.websocket("/chatqa/{product_name}/{product_description}")
 async def chat_endpoint(websocket: WebSocket, product_name: str, product_description: str):
-    """WebSocket endpoint for live chat functionality."""
-    await websocket.accept() #moved accept here.
+    await websocket.accept()
     try:
         payload = await authenticate_websocket(websocket)
         if bool(payload):
             await chat_logic(websocket, product_name, product_description, payload)
+    except ConnectionClosedError:
+        print("Connection Closed Error in endpoint")
+    except ConnectionClosedOK:
+        print("Connection Closed OK in endpoint")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error in chat_endpoint: {e}")
     finally:
         await websocket.close()
 
 
-@app.websocket("/chatlqasmpl")
+@app.websocket("/chatqasmpl")
 async def chat_endpoint(websocket: WebSocket):
     """WebSocket endpoint for live chat functionality."""
     try:
