@@ -15,7 +15,7 @@ firebase_admin.initialize_app(cred)
 
 def decode_access_token(token: str):    
     if token == UNIVERSAL_TOKEN:
-        return {"sub": "universal_user", "role": "admin", "exp": None}
+        return {"name":"BuriBurizaemon","sub": "universal_user", "role": "admin", "exp": None}
 
     try:
         decoded_token = auth.verify_id_token(token, check_revoked=True)
