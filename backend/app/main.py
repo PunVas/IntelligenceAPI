@@ -10,8 +10,8 @@ from starlette.responses import StreamingResponse
 from zoneinfo import ZoneInfo
 
 # Import services and authentication
-from auth.jwt_handler import get_current_user, decode_access_token
-from services.ai_service import *
+from app.auth.jwt_handler import get_current_user, decode_access_token
+from app.services.ai_service import *
 
 # Initialize FastAPI
 # app = FastAPI()
