@@ -101,7 +101,7 @@ class LogMiddleware(BaseHTTPMiddleware):
             # Append log without pruning in every request
             logging.info(json.dumps(request_data))
 
-            image_data = extim(request_data.get("body")) or extract_image_base64(request_data.get("response_body"))
+            image_data = extim(request_data.get("body")) or extim(request_data.get("response_body"))
 
             await send_to_google_sheet({
                 "time": request_data["time"],
