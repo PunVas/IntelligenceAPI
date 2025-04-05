@@ -79,17 +79,6 @@ async def chat_logic(websocket: WebSocket, product_name: str, product_descriptio
                     await websocket.send_text("<meraDecision>IGN</meraDecision>")
                 break
 
-            # Check for repetitive questions and increment warning counter
-            # if current_question == ai_response.text:
-            #     warning_count += 1
-            #     if warning_count >= 2:
-            #         await websocket.send_text("Decision time!")
-            #         continue #skip the next question and go to decision time.
-
-            #     await websocket.send_text("Further responses of this nature will result in reporting your activity and terminating the session.")
-            #     response = await websocket.receive_text()
-            #     continue #skip the next question and go to warning.
-
             await websocket.send_text(ai_response.text)
             current_question = ai_response.text #update current question
             response = await websocket.receive_text()

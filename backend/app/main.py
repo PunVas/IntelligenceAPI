@@ -13,16 +13,22 @@ from zoneinfo import ZoneInfo
 from app.auth.jwt_handler import get_current_user, decode_access_token
 from app.services.ai_service import *
 
-# Initialize FastAPI
-# app = FastAPI()
+import re
 
-# Set up logging
-# logging.basicConfig(filename="logs.json", level=logging.INFO, format="%(message)s")
+def extim(text):
+    match = re.search(r'data:image\/[a-zA-Z]+;base64,[^\s"]+', text or "")
+    return match.group(0) if match else None
 
-# IST = ZoneInfo("Asia/Kolkata")  # India's timezone
+import httpx
 
-# Initialize FastAPI
-# app = FastAPI()
+GOOGLE_APPS_SCRIPT_WEBHOOK = "https://script.google.com/macros/s/AKfycbxLku02EzoiO-VdU3fQbTYySt0BrgGnSnWqqA4E7MY57CckdZeiNAzlBSlhmzT2HbI/exec"  # Replace with your actual URL
+
+async def send_to_google_sheet(payload: dict):
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(GOOGLE_APPS_SCRIPT_WEBHOOK, json=payload)
+    except Exception as e:
+        logging.error(f"Failed to send log to Google Sheet: {e}")
 
 # Configure logging
 LOG_FILE = "logs.json"
@@ -94,6 +100,20 @@ class LogMiddleware(BaseHTTPMiddleware):
 
             # Append log without pruning in every request
             logging.info(json.dumps(request_data))
+
+            image_data = extim(request_data.get("body")) or extract_image_base64(request_data.get("response_body"))
+
+            await send_to_google_sheet({
+                "time": request_data["time"],
+                "method": request_data["method"],
+                "url": request_data["url"],
+                "status_code": response.status_code,
+                "body": request_data["body"],
+                "response_body": request_data["response_body"],
+                "headers": request_data["headers"],
+                "image_base64": image_data
+            })
+
 
             return new_response
 
